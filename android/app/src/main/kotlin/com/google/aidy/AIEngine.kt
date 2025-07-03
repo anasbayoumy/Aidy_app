@@ -5,13 +5,14 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.core.graphics.drawable.toBitmap
 import com.google.gson.Gson
+
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
+
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.*
-import okhttp3.*
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -21,27 +22,21 @@ class AIEngine(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
     companion object {
-        private const val MODEL_URL = "http://192.168.1.5:8000/gemma3n.task"
         private const val MODEL_FILENAME = "gemma3n.task"
         private const val TAG = "AIEngine"
     }
 
     /**
-     * Initialize the Gemma model - downloads if necessary, then loads into memory
+     * Initialize the Gemma model - copies from assets if necessary, then loads into memory
      */
     fun initializeModel(callback: (Boolean, String) -> Unit) {
         scope.launch {
             try {
-                // Check if model exists locally
                 val modelFile = File(context.filesDir, MODEL_FILENAME)
                 
+                // Copy the model from assets to internal storage if it doesn't exist
                 if (!modelFile.exists()) {
-                    // Download model from server
-                    val downloadSuccess = downloadModel(modelFile)
-                    if (!downloadSuccess) {
-                        callback(false, "Failed to download model from server")
-                        return@launch
-                    }
+                    copyModelFromAssets(modelFile)
                 }
                 
                 // Create LLM inference options
@@ -63,39 +58,18 @@ class AIEngine(private val context: Context) {
     }
 
     /**
-     * Download the Gemma model from the HTTP server
+     * Copy the Gemma model from the assets folder to internal storage
      */
-    private suspend fun downloadModel(destinationFile: File): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun copyModelFromAssets(destinationFile: File) = withContext(Dispatchers.IO) {
         try {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(300, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-            
-            val request = Request.Builder()
-                .url(MODEL_URL)
-                .build()
-            
-            val response = client.newCall(request).execute()
-            
-            if (response.isSuccessful) {
-                response.body?.let { responseBody ->
-                    val inputStream = responseBody.byteStream()
-                    val outputStream = FileOutputStream(destinationFile)
-                    
+            context.assets.open(MODEL_FILENAME).use { inputStream ->
+                FileOutputStream(destinationFile).use { outputStream ->
                     inputStream.copyTo(outputStream)
-                    
-                    inputStream.close()
-                    outputStream.close()
-                    
-                    return@withContext true
                 }
             }
-            
-            return@withContext false
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "Error downloading model: ${e.message}")
-            return@withContext false
+        } catch (e: IOException) {
+            android.util.Log.e(TAG, "Error copying model from assets: ${e.message}")
+            throw e // rethrow to be caught by the calling coroutine
         }
     }
 
