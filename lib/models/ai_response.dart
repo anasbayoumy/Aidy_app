@@ -7,18 +7,9 @@ class AiResponse {
   final String smsDraft;
   final List<String> guidanceSteps;
 
-  const AiResponse({
-    required this.smsDraft,
-    required this.guidanceSteps,
-  });
+  AiResponse({required this.smsDraft, required this.guidanceSteps});
 
   factory AiResponse.fromJson(Map<String, dynamic> json) =>
       _$AiResponseFromJson(json);
-
   Map<String, dynamic> toJson() => _$AiResponseToJson(this);
-
-  @override
-  String toString() {
-    return 'AiResponse(smsDraft: $smsDraft, guidanceSteps: $guidanceSteps)';
-  }
 }

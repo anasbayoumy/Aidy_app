@@ -1,252 +1,119 @@
 package com.google.aidy
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.core.graphics.drawable.toBitmap
-import com.google.gson.Gson
-
-import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.MPImage
-
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceOptions
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
+import android.util.Log
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
+import org.json.JSONObject
+import java.io.*
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
+import org.tensorflow.lite.Interpreter
+import android.graphics.Bitmap
+
+data class ModelInput(val text: String?, val image: ByteArray?, val audio: ByteArray?)
 
 class AIEngine(private val context: Context) {
-    private var llmInference: LlmInference? = null
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    
-    companion object {
-        private const val MODEL_FILENAME = "gemma3n.task"
-        private const val TAG = "AIEngine"
+    private lateinit var tflite: Interpreter
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private fun loadModel() {
+        val assetFileDescriptor = context.assets.openFd("gemma3n.tflite")
+        val fileInputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
+        val fileChannel = fileInputStream.channel
+        val startOffset = assetFileDescriptor.startOffset
+        val declaredLength = assetFileDescriptor.declaredLength
+        val modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+        tflite = Interpreter(modelBuffer)
     }
 
-    /**
-     * Initialize the Gemma model - copies from assets if necessary, then loads into memory
-     */
-    fun initializeModel(callback: (Boolean, String) -> Unit) {
-        scope.launch {
+    // Placeholder for input preprocessing
+    private fun preprocessInput(prompt: String, imagePath: String?, audioPath: String?): ModelInput {
+        // Text: always present
+        val textInput = prompt.takeIf { it.isNotBlank() }
+
+        // Image: load as byte array if present
+        val imageInput: ByteArray? = if (!imagePath.isNullOrBlank()) {
             try {
-                val modelFile = File(context.filesDir, MODEL_FILENAME)
-                
-                // Copy the model from assets to internal storage if it doesn't exist
-                if (!modelFile.exists()) {
-                    copyModelFromAssets(modelFile)
-                }
-                
-                // Create LLM inference options
-                val options = LlmInferenceOptions.builder()
-                    .setModelPath(modelFile.absolutePath)
-                    .setMaxTokens(1024)
-                    .setTemperature(0.7f)
-                    .setRandomSeed(42)
-                    .build()
-                
-                // Initialize the model
-                llmInference = LlmInference.createFromOptions(context, options)
-                callback(true, "Model loaded successfully")
-                
+                val bitmap = BitmapFactory.decodeFile(imagePath)
+                if (bitmap != null) {
+                    // Example: convert bitmap to JPEG byte array (replace with model-specific preprocessing)
+                    val stream = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
+                    stream.toByteArray()
+                } else null
             } catch (e: Exception) {
-                callback(false, "Error initializing model: ${e.message}")
+                null
             }
-        }
-    }
+        } else null
 
-    /**
-     * Copy the Gemma model from the assets folder to internal storage
-     */
-    private suspend fun copyModelFromAssets(destinationFile: File) = withContext(Dispatchers.IO) {
-        try {
-            context.assets.open(MODEL_FILENAME).use { inputStream ->
-                FileOutputStream(destinationFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-        } catch (e: IOException) {
-            android.util.Log.e(TAG, "Error copying model from assets: ${e.message}")
-            throw e // rethrow to be caught by the calling coroutine
-        }
-    }
-
-    /**
-     * Run inference with text query and optional image
-     */
-    fun runGemmaInference(textQuery: String, imagePath: String?, callback: (Boolean, String) -> Unit) {
-        if (llmInference == null) {
-            callback(false, "Model not initialized. Please initialize first.")
-            return
-        }
-        
-        scope.launch {
+        // Audio: load as byte array if present
+        val audioInput: ByteArray? = if (!audioPath.isNullOrBlank()) {
             try {
-                val result = runGemmaInferenceInternal(textQuery, imagePath)
-                callback(true, result)
+                val file = File(audioPath)
+                if (file.exists()) file.readBytes() else null
             } catch (e: Exception) {
-                callback(false, "Inference error: ${e.message}")
+                null
             }
-        }
+        } else null
+
+        return ModelInput(textInput, imageInput, audioInput)
     }
 
-    /**
-     * Internal inference execution with coroutines
-     */
-    private suspend fun runGemmaInferenceInternal(textQuery: String, imagePath: String?): String = withContext(Dispatchers.IO) {
-        val session = llmInference!!.createSession()
-        
-        // Add image to session if provided
-        imagePath?.let { path ->
-            val bitmap = BitmapFactory.decodeFile(path)
-            bitmap?.let {
-                val mpImage = BitmapImageBuilder(it).build()
-                session.addQueryImage(mpImage)
-            }
-        }
-        
-        // Create emergency-focused prompt
-        val emergencyPrompt = createEmergencyPrompt(textQuery)
-        
-        // Run inference
-        val responseBuilder = StringBuilder()
-        val responseListener = object : LlmInference.LlmInferenceSession.ResponseListener {
-            override fun onResponse(partialResult: String, done: Boolean) {
-                responseBuilder.append(partialResult)
-                if (done) {
-                    // Parsing will be handled after this callback
+    // Placeholder for output postprocessing
+    private fun postprocessOutput(output: Any): String {
+        // Assume output is a String array: [smsDraft, guidanceStepsJoined]
+        val arr = output as Array<String>
+        val smsDraft = arr[0]
+        val guidanceSteps = arr[1].split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+        val json = JSONObject()
+        json.put("smsDraft", smsDraft)
+        json.put("guidanceSteps", guidanceSteps)
+        return json.toString()
+    }
+
+    // Placeholder for running inference
+    private fun runTFLiteInference(input: Any): Any {
+        // Placeholder: run inference using the TFLite Interpreter
+        // Assume input is a String and output is a String array of size 2
+        val inputArray = arrayOf(input as String)
+        val outputArray = Array(1) { Array(2) { "" } } // 1 batch, 2 outputs
+        tflite.run(inputArray, outputArray)
+        return outputArray[0]
+    }
+
+    fun initializeModel(callback: (Boolean, String?) -> Unit) {
+        coroutineScope.launch {
+            try {
+                loadModel()
+                withContext(Dispatchers.Main) {
+                    callback(true, null)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(false, e.message)
                 }
             }
         }
-        
-        // Generate response
-        session.generateResponseAsync(emergencyPrompt, responseListener)
-        
-        // Wait for completion (simplified - in production, use proper async handling)
-        delay(5000) // Allow time for response generation
-        
-        val fullResponse = responseBuilder.toString()
-        
-        // Parse and structure the response
-        return@withContext parseGemmaOutputToJson(fullResponse)
     }
 
-    /**
-     * Create emergency-focused prompt for better structured output
-     */
-    private fun createEmergencyPrompt(userQuery: String): String {
-        return """
-You are an emergency AI assistant. Analyze the following emergency situation and provide:
-
-1. A concise SMS draft for emergency contacts (max 160 characters)
-2. Step-by-step first aid or safety guidance
-
-Emergency Situation: $userQuery
-
-Please format your response as:
-
-SMS Draft: [Your emergency SMS here]
-
-Guidance Steps:
-1. [First step]
-2. [Second step]
-3. [Third step]
-[Continue as needed]
-
-Keep the SMS brief but informative. Focus on immediate safety and actionable steps.
-        """.trimIndent()
-    }
-
-    /**
-     * Parse the AI response into structured JSON format
-     */
-    private fun parseGemmaOutputToJson(rawResponse: String): String {
-        return try {
-            val lines = rawResponse.lines()
-            var smsDraft = ""
-            val guidanceSteps = mutableListOf<String>()
-            
-            var currentSection = ""
-            
-            for (line in lines) {
-                val trimmedLine = line.trim()
-                
-                when {
-                    trimmedLine.startsWith("SMS Draft:", ignoreCase = true) -> {
-                        currentSection = "sms"
-                        smsDraft = trimmedLine.substringAfter("SMS Draft:").trim()
-                    }
-                    trimmedLine.startsWith("Guidance Steps:", ignoreCase = true) -> {
-                        currentSection = "guidance"
-                    }
-                    trimmedLine.matches(Regex("^\\d+\\..*")) && currentSection == "guidance" -> {
-                        guidanceSteps.add(trimmedLine.substringAfter(". ").trim())
-                    }
-                    trimmedLine.isNotEmpty() && currentSection == "sms" && smsDraft.isEmpty() -> {
-                        smsDraft = trimmedLine
-                    }
+    fun runGemmaInference(prompt: String, imagePath: String?, audioPath: String?, callback: (Boolean, String?) -> Unit) {
+        coroutineScope.launch {
+            try {
+                val input = preprocessInput(prompt, imagePath, audioPath)
+                val output = runTFLiteInference(input)
+                val resultJson = postprocessOutput(output)
+                withContext(Dispatchers.Main) {
+                    callback(true, resultJson)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(false, e.message)
                 }
             }
-            
-            // Fallback parsing if structured format not found
-            if (smsDraft.isEmpty() && guidanceSteps.isEmpty()) {
-                // Simple fallback - take first 160 chars as SMS, rest as guidance
-                val words = rawResponse.split(" ")
-                val smsWords = mutableListOf<String>()
-                var charCount = 0
-                
-                for (word in words) {
-                    if (charCount + word.length + 1 <= 160) {
-                        smsWords.add(word)
-                        charCount += word.length + 1
-                    } else {
-                        break
-                    }
-                }
-                
-                smsDraft = smsWords.joinToString(" ")
-                guidanceSteps.add("Assess the situation carefully")
-                guidanceSteps.add("Call emergency services if needed")
-                guidanceSteps.add("Follow basic safety protocols")
-            }
-            
-            val response = AiResponse(
-                smsDraft = smsDraft.ifEmpty { "Emergency assistance needed. Please help." },
-                guidanceSteps = guidanceSteps.ifEmpty { listOf("Stay calm", "Assess situation", "Seek help") }
-            )
-            
-            Gson().toJson(response)
-            
-        } catch (e: Exception) {
-            // Return default emergency response
-            val defaultResponse = AiResponse(
-                smsDraft = "Emergency situation requires assistance. Please help.",
-                guidanceSteps = listOf(
-                    "Stay calm and assess the situation",
-                    "Ensure your immediate safety",
-                    "Call emergency services if needed",
-                    "Follow basic first aid if applicable"
-                )
-            )
-            Gson().toJson(defaultResponse)
         }
     }
-
-    /**
-     * Clean up resources
-     */
-    fun cleanup() {
-        scope.cancel()
-        llmInference?.close()
-    }
-}
-
-/**
- * Data class for structured AI response
- */
-data class AiResponse(
-    val smsDraft: String,
-    val guidanceSteps: List<String>
-)
+} 

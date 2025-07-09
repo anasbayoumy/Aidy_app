@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.google.aidy"
-    compileSdk = 35
+    compileSdkVersion 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -21,8 +21,8 @@ android {
 
     defaultConfig {
         applicationId = "com.google.aidy"
-        minSdk = 24
-        targetSdk = 35
+        minSdkVersion 26
+        targetSdkVersion 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true

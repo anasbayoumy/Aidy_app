@@ -1,5 +1,5 @@
-name: aidy
-description: "gemma 3 embedded in an offline emergency app companion"
+name: aidy_app
+description: "Aidy: Your On-Device AI Emergency Companion"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.5.4
+  sdk: ^3.5.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -31,34 +31,31 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # State management
-  flutter_riverpod: ^2.4.9
-  
-  # Image handling
-  image_picker: ^1.0.4
-  
-  # JSON serialization
-  json_annotation: ^4.8.1
-  
-  # HTTP requests for model download
-  http: ^1.1.0
-  
-  # Path provider for file storage
-  path_provider: ^2.1.1
-  
-  # Icons
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.4.9
+  json_annotation: ^4.8.1
+  speech_to_text: ^7.1.0
+  image_picker: ^1.1.2
+  permission_handler: ^12.0.1
+  # geolocator: ^14.0.2  # Temporarily commented out due to build issues
+  record: ^6.0.0
+  just_audio: ^0.9.36
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # Code generation
-  build_runner: ^2.4.7
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.8
   json_serializable: ^6.7.1
-
-  # Linting
-  flutter_lints: ^4.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
