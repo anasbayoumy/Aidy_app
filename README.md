@@ -1,230 +1,6 @@
-# Aidy - Your On-Device AI Emergency Companion
+# myapp
 
-## Table of Contents
-1. [Project Overview](#project-overview)
-2. [Core Technologies & Architecture](#core-technologies--architecture)
-3. [Key Features](#key-features)
-4. [Technical Architecture & Flow](#technical-architecture--flow)
-5. [Build Process & Setup](#build-process--setup)
-6. [Running the App](#running-the-app)
-7. [Production Considerations](#production-considerations)
-
-## Project Overview
-
-**Aidy** is an innovative mobile emergency companion that leverages on-device AI to provide rapid, intelligent assistance during critical situations. The application processes multimodal input (text and optional images) to generate structured emergency responses including SMS drafts and first-aid guidance.
-
-### Mission
-Aidy's mission is to provide rapid, intelligent assistance during emergencies using cutting-edge on-device AI technology, ensuring privacy, offline capability, and low latency through local AI processing.
-
-### Key Advantages
-- **Privacy-First**: All AI processing happens locally on the device
-- **Offline Capability**: Works without internet connectivity once model is downloaded
-- **Low Latency**: Immediate responses through local inference
-- **Multimodal Input**: Supports both text descriptions and optional image analysis
-
-## Core Technologies & Architecture
-
-### Frontend (User Interface)
-- **Flutter (Dart)** for cross-platform UI (Android/iOS focus)
-- **Flutter Riverpod** for state management
-- **Material Design 3** for modern, accessible UI
-
-### On-Device AI Engine (Backend - Kotlin Focus)
-- **Android Kotlin** implementation
-- **MediaPipe LLM Inference SDK** for AI processing
-- **OkHttp** for model downloading
-- **Kotlin Coroutines** for asynchronous operations
-
-### AI Model
-- **Gemma 3n E2B LiteRT** (approximately 3.14 GB)
-- Optimized for on-device efficiency
-- Dynamic download from local HTTP server
-
-### Inter-Layer Communication
-- **Flutter MethodChannel** (`com.google.aidy/ai`) for seamless communication between Flutter UI and native Android AI engine
-
-## Key Features
-
-### 1. Multimodal Input
-- Text-based emergency situation descriptions
-- Optional image capture/selection for visual context
-- Quick example scenarios for rapid input
-
-### 2. On-Device AI Inference
-- Gemma 3n model runs locally for privacy
-- Offline capability after initial download
-- Low latency responses
-
-### 3. Structured Output
-- **SMS Draft**: Concise emergency message (≤160 characters)
-- **Guidance Steps**: Step-by-step first aid or safety instructions
-
-### 4. User-Friendly Interface
-- Simple, intuitive Flutter UI
-- Emergency-focused design with red color scheme
-- Copy-to-clipboard functionality for easy sharing
-
-### 5. Efficient Model Management
-- Dynamic model download from `http://192.168.1.5:8000/gemma3n.task`
-- Storage in device's internal storage (`context.filesDir`)
-- One-time download with local persistence
-
-## Technical Architecture & Flow
-
-### A. Model Acquisition and Storage (Dynamic Download)
-
-The `gemma3n.task` file is hosted on a local HTTP server at `http://192.168.1.5:8000/gemma3n.task`. The Kotlin `AIEngine.kt` handles:
-
-1. **Download Check**: Verifies if model exists in `context.filesDir`
-2. **Download Process**: If not present, downloads from server using OkHttp
-3. **Storage**: Saves to internal storage for future use
-4. **Validation**: Ensures successful download before proceeding
-
-### B. Application Flow (Flutter ↔ Kotlin)
-
-#### App Launch (Flutter `main.dart`)
-1. Flutter UI initializes with Riverpod state management
-2. `AiTestNotifier` calls `AiService.initGemmaModel()`
-3. MethodChannel communication initiated
-
-#### Model Initialization (Kotlin `AIEngine.kt`)
-```kotlin
-fun initializeModel(callback: (Boolean, String) -> Unit) {
-    scope.launch {
-        // Check if model exists locally
-        val modelFile = File(context.filesDir, MODEL_FILENAME)
-        
-        if (!modelFile.exists()) {
-            // Download model from server
-            val downloadSuccess = downloadModel(modelFile)
-            if (!downloadSuccess) {
-                callback(false, "Failed to download model")
-                return@launch
-            }
-        }
-        
-        // Create LLM inference options pointing to local file
-        val options = LlmInferenceOptions.builder()
-            .setModelPath(modelFile.absolutePath)
-            .setMaxTokens(1024)
-            .setTemperature(0.7f)
-            .build()
-        
-        // Initialize the model
-        llmInference = LlmInference.createFromOptions(context, options)
-        callback(true, "Model loaded successfully")
-    }
-}
-```
-
-## Build Process & Setup
-
-### Prerequisites
-- **Flutter SDK** (3.24.6 or newer)
-- **Android Studio** with Android SDK
-- **Kotlin** 1.9.0+
-- **Kaggle API** (for initial model acquisition)
-
-### Step 1: Acquire Model File
-```bash
-# Use kagglehub to download the model
-pip install kagglehub
-python -c "import kagglehub; kagglehub.model_download('google/gemma-3/tfLite/2b-it', 'gemma3n.task')"
-
-# Host the model on local server
-python -m http.server 8000 --directory /path/to/model/directory
-# Model should be accessible at http://192.168.1.5:8000/gemma3n.task
-```
-
-### Step 2: Project Structure
-```
-android/app/libs/
-├── tasks-genai-0.10.25.aar      # MediaPipe GenAI AAR
-└── tasks-vision-0.10.21.aar     # MediaPipe Vision AAR
-
-android/app/model_allowlist.json  # Model allowlist configuration
-android/app/src/main/kotlin/com/google/aidy/
-├── MainActivity.kt               # Flutter Activity with MethodChannel
-└── AIEngine.kt                   # Core AI inference engine
-```
-
-### Step 3: Build Commands
-```bash
-# Install dependencies
-flutter pub get
-
-# Generate code
-flutter pub run build_runner build
-
-# Build for Android
-flutter build apk --release
-```
-
-## Running the App
-
-### Local Development & Testing
-
-1. **Connect Device/Start Emulator**
-   - Physical device recommended for better performance
-   - Emulator may have limitations with large AI models
-
-2. **Ensure Model Server is Running**
-   ```bash
-   # Start local HTTP server hosting the model
-   python -m http.server 8000 --directory /path/to/model
-   # Verify accessibility at http://192.168.1.5:8000/gemma3n.task
-   ```
-
-3. **Build and Run**
-   ```bash
-   flutter run --debug
-   ```
-
-4. **Grant Permissions**
-   - Allow camera access for image capture
-   - Allow storage permissions for file access
-
-5. **Initial Model Download & Loading**
-   - First launch will download 3.14 GB model
-   - Download time depends on network speed
-   - Model loading may take 30-60 seconds
-   - Progress shown in app's Model Status Card
-
-6. **Test Inference**
-   - Enter emergency situation description
-   - Optionally add image for context
-   - Tap "Analyze Scenario" button
-   - Review structured SMS draft and guidance steps
-
-## Production Considerations & Future Enhancements
-
-### Security Enhancements
-- **HTTPS Model Distribution**: Replace HTTP with HTTPS for secure downloads
-- **Model Checksums**: Verify file integrity with SHA-256 checksums
-- **Certificate Pinning**: Implement SSL certificate pinning
-
-### Performance Optimization
-- **Adaptive Model Sizing**: Choose model variants based on device capabilities
-- **Background Processing**: Pre-load models during idle time
-- **Memory Management**: Implement smart model unloading/reloading
-
-### Advanced Features
-- **Voice Input**: Speech-to-text for hands-free operation
-- **Location Integration**: GPS coordinates in emergency messages
-- **Direct SMS Sending**: Automatic emergency contact messaging
-- **Offline Maps**: Emergency services location mapping
-
----
-
-## Architecture Summary
-
-Aidy represents a sophisticated approach to emergency AI assistance, combining:
-- **Flutter's cross-platform capabilities** for consistent UX
-- **Kotlin's powerful native integration** for complex AI processing
-- **MediaPipe's optimized inference** for efficient on-device AI
-- **Thoughtful UX design** for emergency scenarios
-
-The dynamic model distribution strategy ensures privacy while maintaining flexibility for updates and testing. The structured output format (SMS + Guidance) provides immediately actionable information for emergency responders and civilians alike. embedded in an offline emergency app companion
+A new Flutter project.
 
 ## Getting Started
 
@@ -238,6 +14,88 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
-#   A i d y _ a p p 
- 
- 
+## https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task
+
+i want the model to be loaded from the src/main/assets you will find the .task file and make it load the model create the session and takes the input which is text only or text with image or voice .wav  only or voice .wav with image and give the output exactly as it wanted here is some code examples for reference:Dependencies
+Audio Classifier uses the com.google.mediapipe:tasks-audio library. Add this dependency to the build.gradle file of your Android app development project. Import the required dependencies with the following code:
+
+
+dependencies {
+    ...
+    implementation 'com.google.mediapipe:tasks-audio:latest.release'
+}
+Model
+The MediaPipe Audio Classifier task requires a trained model that is compatible with this task. For more information on available trained models for Audio Classifier, see the task overview Models section.
+
+Select and download the model, and then store it within your project directory:
+
+
+<dev-project-root>/src/main/assets
+Note: This location is recommended because the Android build system automatically checks this directory for file resources.
+Use the BaseOptions.Builder.setModelAssetPath() method to specify the path used by the model. This method is referred to in the code example in the next section.
+
+In the Audio Classifier example code, the model is defined in the AudioClassifierHelper.kt file.
+
+Create the task
+You can use the createFromOptions function to create the task. The createFromOptions function accepts configuration options including running mode, display names locale, max number of results, confidence threshold, and a category allow list or deny list. For more information on configuration options, see Configuration Overview.
+
+The Audio Classifier task supports the following input data types: audio clips and audio streams. You need to specify the running mode corresponding to your input data type when creating a task. Choose the tab corresponding to your input data type to see how to create the task and run inference.
+
+Audio clips
+Audio stream
+
+AudioClassifierOptions options =
+    AudioClassifierOptions.builder()
+        .setBaseOptions(
+            BaseOptions.builder().setModelAssetPath("model.tflite").build())
+        .setRunningMode(RunningMode.AUDIO_CLIPS)
+        .setMaxResults(5)
+        .build();
+audioClassifier = AudioClassifier.createFromOptions(context, options);
+    
+The Audio Classifier example code implementation allows the user to switch between processing modes. The approach makes the task creation code more complicated and may not be appropriate for your use case. You can see the mode switching code in the initClassifier() function of the AudioClassifierHelper.
+
+Configuration options
+This task has the following configuration options for Android apps:
+
+Option Name	Description	Value Range	Default Value
+runningMode	Sets the running mode for the task. Audio Classifier has two modes:
+
+AUDIO_CLIPS: The mode for running the audio task on independent audio clips.
+
+AUDIO_STREAM: The mode for running the audio task on an audio stream, such as from microphone. In this mode, resultListener must be called to set up a listener to receive the classification results asynchronously.	{AUDIO_CLIPS, AUDIO_STREAM}	AUDIO_CLIPS
+displayNamesLocale	Sets the language of labels to use for display names provided in the metadata of the task's model, if available. Default is en for English. You can add localized labels to the metadata of a custom model using the TensorFlow Lite Metadata Writer API	Locale code	en
+maxResults	Sets the optional maximum number of top-scored classification results to return. If < 0, all available results will be returned.	Any positive numbers	-1
+scoreThreshold	Sets the prediction score threshold that overrides the one provided in the model metadata (if any). Results below this value are rejected.	[0.0, 1.0]	Not set
+categoryAllowlist	Sets the optional list of allowed category names. If non-empty, classification results whose category name is not in this set will be filtered out. Duplicate or unknown category names are ignored. This option is mutually exclusive with categoryDenylist and using both results in an error.	Any strings	Not set
+categoryDenylist	Sets the optional list of category names that are not allowed. If non-empty, classification results whose category name is in this set will be filtered out. Duplicate or unknown category names are ignored. This option is mutually exclusive with categoryAllowlist and using both results in an error.	Any strings	Not set
+resultListener	Sets the result listener to receive the classification results asynchronously when the Audio Classifier is in the audio stream mode. Can only be used when running mode is set to AUDIO_STREAM	N/A	Not set
+errorListener	Sets an optional error listener.	N/A	Not set
+Prepare data
+Audio Classifier works with audio clips and audio streams. The task handles the data input preprocessing, including resampling, buffering, and framing. However, you must convert the input audio data to a com.google.mediapipe.tasks.components.containers.AudioData object before passing it to the Audio Classifier task.
+
+Audio clips
+Audio stream
+
+import com.google.mediapipe.tasks.components.containers.AudioData;
+
+// Load an audio on the user’s device as a float array.
+
+// Convert a float array to a MediaPipe’s AudioData object.
+AudioData audioData =
+    AudioData.create(
+        AudioData.AudioDataFormat.builder()
+            .setNumOfChannels(numOfChannels)
+            .setSampleRate(sampleRate)
+            .build(),
+        floatData.length);
+audioData.load(floatData);
+    
+Run the task
+You can call the classify function corresponding to your running mode to trigger inferences. The Audio Classifier API returns the possible categories for the audio events recognized within the input audio data.
+
+Audio clips
+Audio stream
+
+AudioClassifierResult classifierResult = audioClassifier.classify(audioData);
+    "this is the audio part and how you can do it"

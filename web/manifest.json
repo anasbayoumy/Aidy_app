@@ -1,11 +1,11 @@
 {
-    "name": "aidy",
-    "short_name": "aidy",
+    "name": "myapp",
+    "short_name": "myapp",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "gemma 3 embedded in an offline emergency app companion",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

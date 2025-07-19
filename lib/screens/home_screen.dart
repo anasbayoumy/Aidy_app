@@ -5,23 +5,32 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import '../providers/home_provider.dart';
 import '../widgets/sms_dialog_widget.dart';
-import '../widgets/permission_dialog_widget.dart';
+// import '../widgets/permission_dialog_widget.dart';
+import '../main.dart'; // Import for VoiceRecorderWidget
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String inputMode = 'text'; // 'text' or 'voice'
+  String? lastVoicePath;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(homeProvider);
     final notifier = ref.read(homeProvider.notifier);
 
     // Show permission dialog on first launch
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (state.shouldShowPermissionDialog) {
-        notifier.hidePermissionDialog();
-        PermissionDialogWidget.showPermissionDialog(context);
-      }
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   if (state.shouldShowPermissionDialog) {
+    //     notifier.hidePermissionDialog();
+    //     PermissionDialogWidget.showPermissionDialog(context);
+    //   }
+    // });
 
     // Show SMS dialog when AI response is ready and not yet shown
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -135,7 +144,6 @@ class HomeScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Input Section - only show when no AI response
                       if (state.aiResponse == null) ...[
                         Container(
                           padding: const EdgeInsets.all(20),
@@ -150,253 +158,306 @@ class HomeScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Describe the Emergency',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A237E),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              initialValue: state.textInput,
-                              onChanged: notifier.updateTextInput,
-                              maxLines: 4,
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Describe the emergency situation (e.g., "My neighbor collapsed and is bleeding from a head wound.")',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                      color: Color(0xFFE0E0E0)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Describe the Emergency',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1A237E),
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                      color: Color(0xFF3F51B5), width: 2),
-                                ),
-                                filled: true,
-                                fillColor: const Color(0xFFF5F5F5),
-                                contentPadding: const EdgeInsets.all(16),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Voice and Image Input Row
-                            Row(
-                              children: [
-                                // Voice Input Button
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: state.isLoading
-                                        ? null
-                                        : () => notifier.toggleListening(),
-                                    icon: Icon(
-                                      state.isListening
-                                          ? Icons.mic
-                                          : Icons.mic_none,
-                                      color:
-                                          state.isListening ? Colors.red : null,
-                                    ),
-                                    label: Text(
-                                      state.isListening
-                                          ? 'Listening...'
-                                          : 'Voice Input',
-                                      style: TextStyle(
-                                        color: state.isListening
-                                            ? Colors.red
-                                            : null,
+                              const SizedBox(height: 12),
+                              // Toggle buttons for input mode
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: Icon(Icons.text_fields,
+                                          color: inputMode == 'text'
+                                              ? Colors.white
+                                              : Colors.blue),
+                                      label: Text('Text'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: inputMode == 'text'
+                                            ? Colors.blue
+                                            : Colors.white,
+                                        foregroundColor: inputMode == 'text'
+                                            ? Colors.white
+                                            : Colors.blue,
+                                        side: BorderSide(color: Colors.blue),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
                                       ),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: state.isListening
-                                          ? Colors.red.shade50
-                                          : null,
-                                      foregroundColor:
-                                          state.isListening ? Colors.red : null,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
+                                      onPressed: () {
+                                        // If currently in voice mode and there's a voice recording, show confirmation dialog
+                                        if (inputMode == 'voice' &&
+                                            lastVoicePath != null) {
+                                          _showVoiceToTextDialog();
+                                        } else {
+                                          setState(() {
+                                            inputMode = 'text';
+                                          });
+                                        }
+                                      },
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: Icon(Icons.mic,
+                                          color: inputMode == 'voice'
+                                              ? Colors.white
+                                              : Colors.blue),
+                                      label: Text('Voice'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: inputMode == 'voice'
+                                            ? Colors.blue
+                                            : Colors.white,
+                                        foregroundColor: inputMode == 'voice'
+                                            ? Colors.white
+                                            : Colors.blue,
+                                        side: BorderSide(color: Colors.blue),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          inputMode = 'voice';
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              // Show text field or voice recorder based on inputMode ONLY
+                              if (inputMode == 'text')
+                                TextFormField(
+                                  initialValue: state.textInput,
+                                  onChanged: notifier.updateTextInput,
+                                  maxLines: 4,
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        'Describe the emergency situation (e.g., "My neighbor collapsed and is bleeding from a head wound.")',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                          color: Color(0xFFE0E0E0)),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                          color: Color(0xFF3F51B5), width: 2),
+                                    ),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF5F5F5),
+                                    contentPadding: const EdgeInsets.all(16),
+                                  ),
+                                ),
+                              if (inputMode == 'voice')
+                                VoiceRecorderWidget(
+                                  onRecordingComplete: (String? path) {
+                                    setState(() {
+                                      lastVoicePath = path;
+                                    });
+                                    if (path != null) {
+                                      notifier.updateTextInput(
+                                          'Voice recording saved: ${path.split('/').last}');
+                                      notifier.updateAudioPath(
+                                          path); // <-- Ensure audioPath is set
+                                    } else {
+                                      notifier.updateTextInput('');
+                                      notifier.updateAudioPath(
+                                          null); // <-- Clear audioPath if recording is cleared
+                                    }
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+
+                        // Image Preview (outside the card so it's always visible)
+                        if (state.imagePath != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F5F5),
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFFE0E0E0)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade300,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: state.imagePath != null
+                                      ? ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: kIsWeb
+                                              ? Image.network(
+                                                  state.imagePath!,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                      stackTrace) {
+                                                    return const Icon(
+                                                      Icons.error,
+                                                      color: Colors.red,
+                                                    );
+                                                  },
+                                                )
+                                              : Image.file(
+                                                  File(state.imagePath!),
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                      stackTrace) {
+                                                    return const Icon(
+                                                      Icons.error,
+                                                      color: Colors.red,
+                                                    );
+                                                  },
+                                                ),
+                                        )
+                                      : const Icon(
+                                          Icons.image,
+                                          color: Colors.grey,
+                                        ),
                                 ),
                                 const SizedBox(width: 12),
-                                // Image Input Button
                                 Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: state.isLoading
-                                        ? null
-                                        : () => _showImageSourceDialog(context, notifier),
-                                    icon: const Icon(Icons.image),
-                                    label: const Text('Add Image'),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
+                                  child: Text(
+                                    state.imagePath != null
+                                        ? 'Image selected: ${state.imagePath!.split('/').last}'
+                                        : 'Image selected',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () async {
+                                    debugPrint(
+                                        'X button pressed, clearing image');
+                                    await notifier.clearImage();
+                                    debugPrint(
+                                        'Image cleared, current state: ${ref.read(homeProvider).imagePath}');
+                                  },
+                                  icon: const Icon(Icons.close,
+                                      color: Colors.red),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        // Add Image Button (above Analyze Emergency button)
+                        ElevatedButton.icon(
+                          onPressed: state.isLoading
+                              ? null
+                              : () => _showImageSourceDialog(context, notifier),
+                          icon: const Icon(Icons.image),
+                          label: const Text('Add Image'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Analyze Button - only show when no AI response
+                        SizedBox(
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: state.isLoading ||
+                                    state.textInput.trim().isEmpty
+                                ? null
+                                : () => notifier.analyzeScenario(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE53935),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 4,
+                            ),
+                            child: state.isLoading
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Analyzing...'),
+                                    ],
+                                  )
+                                : const Text(
+                                    'Analyze Emergency',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
+
+                        // Error Message - only show when no AI response
+                        if (state.errorMessage != null &&
+                            state.aiResponse == null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error, color: Colors.red),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    state.errorMessage!,
+                                    style: const TextStyle(color: Colors.red),
                                   ),
                                 ),
                               ],
                             ),
-
-                            // Image Preview
-                            if (state.imagePath != null) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F5F5),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: const Color(0xFFE0E0E0)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade300,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: state.imagePath != null
-                                          ? ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
-                                              child: kIsWeb
-                                                  ? Image.network(
-                                                      state.imagePath!,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context, error, stackTrace) {
-                                                        return const Icon(
-                                                          Icons.error,
-                                                          color: Colors.red,
-                                                        );
-                                                      },
-                                                    )
-                                                  : Image.file(
-                                                      File(state.imagePath!),
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context, error, stackTrace) {
-                                                        return const Icon(
-                                                          Icons.error,
-                                                          color: Colors.red,
-                                                        );
-                                                      },
-                                                    ),
-                                            )
-                                          : const Icon(
-                                              Icons.image,
-                                              color: Colors.grey,
-                                            ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        state.imagePath != null 
-                                            ? 'Image selected: ${state.imagePath!.split('/').last}'
-                                            : 'Image selected',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      onPressed: () => notifier.clearImage(),
-                                      icon: const Icon(Icons.close,
-                                          color: Colors.red),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Analyze Button - only show when no AI response
-                      SizedBox(
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed:
-                              state.isLoading || state.textInput.trim().isEmpty
-                                  ? null
-                                  : () => notifier.analyzeScenario(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE53935),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 4,
                           ),
-                          child: state.isLoading
-                              ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                                Colors.white),
-                                      ),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Text('Analyzing...'),
-                                  ],
-                                )
-                              : const Text(
-                                  'Analyze Emergency',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                      ),
+                        ],
                       ], // End of conditional for input section and analyze button
 
-                      // Error Message - only show when no AI response
-                      if (state.errorMessage != null && state.aiResponse == null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error, color: Colors.red),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  state.errorMessage!,
-                                  style: const TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      // Guidance Steps
+                      // AI Response Display - show when AI response is available
                       if (state.aiResponse != null) ...[
                         const SizedBox(height: 24),
                         Container(
@@ -421,7 +482,7 @@ class HomeScreen extends ConsumerWidget {
                                       color: Color(0xFF4CAF50)),
                                   SizedBox(width: 8),
                                   Text(
-                                    'First Aid Guidance',
+                                    'Emergency Response Guidance',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -480,13 +541,58 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ],
                     ],
-                ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showVoiceToTextDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Clear Voice Recording?'),
+            ],
+          ),
+          content: const Text(
+            'If you switch to text mode, your voice recording will be cleared. Are you sure you want to continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog without action
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Clear the voice recording and switch to text mode
+                setState(() {
+                  lastVoicePath = null;
+                  inputMode = 'text';
+                });
+                // Also clear the text input that was set by voice recording
+                ref.read(homeProvider.notifier).updateTextInput('');
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Clear & Switch'),
+            ),
+          ],
+        );
+      },
     );
   }
 

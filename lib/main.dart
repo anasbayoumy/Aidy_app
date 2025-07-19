@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'screens/home_screen.dart';
 import 'utils/app_constants.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'screens/model_loading_screen.dart';
+// import 'dart:io';
 
 void main() {
   runApp(const ProviderScope(child: AidyApp()));
@@ -47,32 +48,40 @@ class AidyApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const HomeScreen());
+        home: const ModelLoadingScreen());
   }
 }
 
 // Add a stateful widget for voice recording
 class VoiceRecorderWidget extends StatefulWidget {
   final void Function(String? path) onRecordingComplete;
-  const VoiceRecorderWidget({required this.onRecordingComplete, super.key});
+  const VoiceRecorderWidget({super.key, required this.onRecordingComplete});
 
   @override
   State<VoiceRecorderWidget> createState() => _VoiceRecorderWidgetState();
 }
 
 class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
-  final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
   String? _filePath;
   bool _isRecording = false;
   bool _isPaused = false;
   bool _isPlaying = false;
+  final Duration _duration = Duration.zero;
+  final Duration _position = Duration.zero;
   late String _wavPath;
+  late final AudioRecorder _recorder;
+
+  @override
+  void initState() {
+    super.initState();
+    _recorder = AudioRecorder();
+  }
 
   @override
   void dispose() {
-    _recorder.dispose();
     _player.dispose();
+    _recorder.dispose();
     super.dispose();
   }
 
@@ -163,59 +172,149 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!_isRecording && _filePath == null)
-          ElevatedButton.icon(
-            icon: Icon(Icons.mic),
-            label: Text('Record Voice'),
-            onPressed: _startRecording,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.mic),
+              label: const Text('Record Voice'),
+              onPressed: _startRecording,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
         if (_isRecording) ...[
-          Row(
-            children: [
-              ElevatedButton.icon(
-                icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                label: Text(_isPaused ? 'Resume' : 'Pause'),
-                onPressed: _isPaused ? _resumeRecording : _pauseRecording,
-              ),
-              SizedBox(width: 8),
-              ElevatedButton.icon(
-                icon: Icon(Icons.stop),
-                label: Text('Stop'),
-                onPressed: _stopRecording,
-              ),
-              SizedBox(width: 8),
-              ElevatedButton.icon(
-                icon: Icon(Icons.restart_alt),
-                label: Text('Restart'),
-                onPressed: _restartRecording,
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text('Recording...'),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.mic, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Recording...',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
+                        label: Text(_isPaused ? 'Resume' : 'Pause'),
+                        onPressed:
+                            _isPaused ? _resumeRecording : _pauseRecording,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.stop),
+                        label: const Text('Stop'),
+                        onPressed: _stopRecording,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
         if (_filePath != null)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    icon: Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
-                    label: Text(_isPlaying ? 'Stop' : 'Play'),
-                    onPressed: _isPlaying ? _stopPlayback : _playRecording,
-                  ),
-                  SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: Icon(Icons.delete),
-                    label: Text('Clear'),
-                    onPressed: _clearRecording,
-                  ),
-                ],
-              ),
-              Text('Voice file: ${_filePath!.split('/').last}'),
-            ],
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE0E0E0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.audiotrack, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Voice file: ${_filePath!.split('/').last}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
+                        label: Text(_isPlaying ? 'Stop' : 'Play'),
+                        onPressed: _isPlaying ? _stopPlayback : _playRecording,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Clear'),
+                        onPressed: _clearRecording,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
       ],
     );

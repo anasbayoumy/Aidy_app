@@ -11,7 +11,7 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
-        aiEngine = AIEngine(this)
+        aiEngine = AIEngine(applicationContext)
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -20,7 +20,7 @@ class MainActivity: FlutterActivity() {
                         if (success) {
                             result.success("Model initialized successfully")
                         } else {
-                            result.error("INIT_ERROR", message, null)
+                            result.error("INIT_ERROR", message ?: "Unknown error", null)
                         }
                     }
                 }
@@ -32,7 +32,7 @@ class MainActivity: FlutterActivity() {
                         if (success) {
                             result.success(response)
                         } else {
-                            result.error("INFERENCE_ERROR", response, null)
+                            result.error("INFERENCE_ERROR", response ?: "Unknown error", null)
                         }
                     }
                 }

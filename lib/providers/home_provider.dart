@@ -86,6 +86,21 @@ class HomeNotifier extends StateNotifier<HomeState> {
     }
 
     await _requestPermissions();
+
+    // Initialize AI model in the background
+    if (!kIsWeb) {
+      try {
+        debugPrint('Initializing AI model...');
+        bool isInitialized = await AiService.initGemmaModel();
+        if (isInitialized) {
+          debugPrint('AI model initialized successfully');
+        } else {
+          debugPrint('Failed to initialize AI model');
+        }
+      } catch (e) {
+        debugPrint('Error initializing AI model: $e');
+      }
+    }
   }
 
   Future<void> _requestPermissions() async {
@@ -415,8 +430,14 @@ class HomeNotifier extends StateNotifier<HomeState> {
         }
       }
 
-      // Run AI inference (still mocked as requested)
-      final aiResponse = await MockAiService.runMockInference(state.textInput,
+      // First, ensure the model is initialized
+      bool isInitialized = await AiService.initGemmaModel();
+      if (!isInitialized) {
+        throw Exception("Failed to initialize AI model");
+      }
+
+      // Use real AI service instead of mock
+      final aiResponse = await AiService.runGemmaInference(state.textInput,
           imagePath: state.imagePath);
 
       // Inject coordinates into SMS draft

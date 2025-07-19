@@ -1,0 +1,1 @@
+# ProGuard rules for MediaPipe and LLM (add keep rules as needed) 
