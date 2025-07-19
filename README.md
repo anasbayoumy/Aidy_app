@@ -1,101 +1,128 @@
-# myapp
+﻿# Aidy - Your On-Device AI Emergency Companion
 
-A new Flutter project.
+**Aidy** is an intelligent emergency response mobile application that leverages on-device AI to provide immediate assistance during critical situations. Built with Flutter and powered by Google's Gemma AI model, Aidy helps users quickly communicate emergencies and receive real-time first-aid guidance.
+
+## Key Features
+
+### Intelligent Emergency Detection
+- **Voice Input**: Record voice descriptions of emergency situations using speech-to-text
+- **Image Analysis**: Take photos of emergency scenes for AI-powered situation assessment
+- **Text Input**: Type emergency descriptions directly into the app
+
+### AI-Powered Emergency Response
+- **Smart SMS Generation**: Automatically creates emergency SMS messages with situation details and location
+- **First-Aid Guidance**: Provides step-by-step first-aid instructions tailored to the specific emergency
+- **On-Device Processing**: Uses Google's Gemma 3B AI model running locally for privacy and offline capability
+
+### Emergency Communication
+- **Automatic Location Integration**: Includes GPS coordinates in emergency messages
+- **Quick SMS Dispatch**: One-tap sending of emergency messages to contacts
+- **Emergency Services Integration**: Direct connection to 911 emergency services
+
+### Specialized Emergency Scenarios
+The AI recognizes and provides tailored responses for:
+- Car Accidents: Traffic safety, injury assessment, information collection
+- Heart Attacks: CPR guidance, symptom recognition, immediate response
+- Fire Emergencies: Evacuation procedures, safety protocols
+- Fall Injuries: Spinal safety, movement restrictions, assessment
+- Breathing Difficulties: Airway management, positioning, monitoring
+- General Medical Emergencies: Basic first-aid, vital signs, emergency protocols
+
+## Technical Architecture
+
+### Frontend
+- **Framework**: Flutter (Dart)
+- **State Management**: Riverpod
+- **UI**: Material Design 3 with custom emergency-focused interface
+- **Platform**: Android (API 26+)
+
+### AI Engine
+- **Model**: Google Gemma 3B (gemma-3n-E2B-it-int4.task)
+- **Runtime**: TensorFlow Lite with MediaPipe Tasks
+- **Processing**: On-device inference for privacy and offline capability
+- **Model Size**: Optimized INT4 quantization for mobile deployment
+
+### Core Services
+- **Speech Recognition**: Real-time voice-to-text conversion
+- **Location Services**: GPS integration for emergency positioning
+- **Image Processing**: Camera integration for visual emergency assessment
+- **Model Management**: Automatic model download and caching
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+### Prerequisites
+- Flutter SDK (3.5.0+)
+- Android Studio with Android SDK (API 26+)
+- Kotlin support
+- Device with at least 4GB RAM (for AI model)
 
-A few resources to get you started if this is your first Flutter project:
+### Installation
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+1. Clone the repository
+   `
+   git clone https://github.com/anasbayoumy/Aidy_app.git
+   cd aidy
+   `
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-## https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task
+2. Install dependencies
+   `
+   flutter pub get
+   `
 
-i want the model to be loaded from the src/main/assets you will find the .task file and make it load the model create the session and takes the input which is text only or text with image or voice .wav  only or voice .wav with image and give the output exactly as it wanted here is some code examples for reference:Dependencies
-Audio Classifier uses the com.google.mediapipe:tasks-audio library. Add this dependency to the build.gradle file of your Android app development project. Import the required dependencies with the following code:
+3. Build and run
+   `
+   flutter run
+   `
 
+### First Launch
+On first launch, Aidy will:
+1. Request necessary permissions (microphone, camera, location, SMS)
+2. Download the Gemma AI model (~2GB) - requires internet connection
+3. Initialize the AI engine for on-device processing
 
-dependencies {
-    ...
-    implementation 'com.google.mediapipe:tasks-audio:latest.release'
-}
-Model
-The MediaPipe Audio Classifier task requires a trained model that is compatible with this task. For more information on available trained models for Audio Classifier, see the task overview Models section.
+## Privacy & Security
 
-Select and download the model, and then store it within your project directory:
+- **On-Device Processing**: All AI inference happens locally - no data sent to external servers
+- **Offline Capability**: Core emergency features work without internet connection
+- **Minimal Permissions**: Only requests essential permissions for emergency functionality
+- **Local Storage**: Emergency data and AI models stored securely on device
 
+## Permissions Required
 
-<dev-project-root>/src/main/assets
-Note: This location is recommended because the Android build system automatically checks this directory for file resources.
-Use the BaseOptions.Builder.setModelAssetPath() method to specify the path used by the model. This method is referred to in the code example in the next section.
+- **Microphone**: Voice recording for emergency descriptions
+- **Location**: GPS coordinates for emergency services
+- **Camera**: Photo capture for emergency scene analysis
+- **SMS**: Sending emergency messages to contacts
+- **Storage**: Caching AI model and temporary files
 
-In the Audio Classifier example code, the model is defined in the AudioClassifierHelper.kt file.
+## Use Cases
 
-Create the task
-You can use the createFromOptions function to create the task. The createFromOptions function accepts configuration options including running mode, display names locale, max number of results, confidence threshold, and a category allow list or deny list. For more information on configuration options, see Configuration Overview.
+### Personal Emergencies
+- Medical emergencies (heart attack, stroke, severe injury)
+- Accidents (car crashes, falls, burns)
+- Breathing difficulties or choking
+- Severe allergic reactions
 
-The Audio Classifier task supports the following input data types: audio clips and audio streams. You need to specify the running mode corresponding to your input data type when creating a task. Choose the tab corresponding to your input data type to see how to create the task and run inference.
+### Witnessed Emergencies
+- Helping others in emergency situations
+- Providing first-aid guidance for bystanders
+- Coordinating emergency response
 
-Audio clips
-Audio stream
+### Emergency Preparedness
+- Learning first-aid procedures
+- Understanding emergency protocols
+- Quick access to emergency services
 
-AudioClassifierOptions options =
-    AudioClassifierOptions.builder()
-        .setBaseOptions(
-            BaseOptions.builder().setModelAssetPath("model.tflite").build())
-        .setRunningMode(RunningMode.AUDIO_CLIPS)
-        .setMaxResults(5)
-        .build();
-audioClassifier = AudioClassifier.createFromOptions(context, options);
-    
-The Audio Classifier example code implementation allows the user to switch between processing modes. The approach makes the task creation code more complicated and may not be appropriate for your use case. You can see the mode switching code in the initClassifier() function of the AudioClassifierHelper.
+## Important Disclaimer
 
-Configuration options
-This task has the following configuration options for Android apps:
+**Aidy is designed to assist in emergency situations but should not replace professional medical training or emergency services. Always call 911 or your local emergency number for serious emergencies. The AI guidance provided is for informational purposes and should not substitute professional medical advice.**
 
-Option Name	Description	Value Range	Default Value
-runningMode	Sets the running mode for the task. Audio Classifier has two modes:
+## Emergency Services
 
-AUDIO_CLIPS: The mode for running the audio task on independent audio clips.
+- **United States**: 911
+- **International**: Contact your local emergency services
+- **Poison Control**: 1-800-222-1222 (US)
 
-AUDIO_STREAM: The mode for running the audio task on an audio stream, such as from microphone. In this mode, resultListener must be called to set up a listener to receive the classification results asynchronously.	{AUDIO_CLIPS, AUDIO_STREAM}	AUDIO_CLIPS
-displayNamesLocale	Sets the language of labels to use for display names provided in the metadata of the task's model, if available. Default is en for English. You can add localized labels to the metadata of a custom model using the TensorFlow Lite Metadata Writer API	Locale code	en
-maxResults	Sets the optional maximum number of top-scored classification results to return. If < 0, all available results will be returned.	Any positive numbers	-1
-scoreThreshold	Sets the prediction score threshold that overrides the one provided in the model metadata (if any). Results below this value are rejected.	[0.0, 1.0]	Not set
-categoryAllowlist	Sets the optional list of allowed category names. If non-empty, classification results whose category name is not in this set will be filtered out. Duplicate or unknown category names are ignored. This option is mutually exclusive with categoryDenylist and using both results in an error.	Any strings	Not set
-categoryDenylist	Sets the optional list of category names that are not allowed. If non-empty, classification results whose category name is in this set will be filtered out. Duplicate or unknown category names are ignored. This option is mutually exclusive with categoryAllowlist and using both results in an error.	Any strings	Not set
-resultListener	Sets the result listener to receive the classification results asynchronously when the Audio Classifier is in the audio stream mode. Can only be used when running mode is set to AUDIO_STREAM	N/A	Not set
-errorListener	Sets an optional error listener.	N/A	Not set
-Prepare data
-Audio Classifier works with audio clips and audio streams. The task handles the data input preprocessing, including resampling, buffering, and framing. However, you must convert the input audio data to a com.google.mediapipe.tasks.components.containers.AudioData object before passing it to the Audio Classifier task.
+---
 
-Audio clips
-Audio stream
-
-import com.google.mediapipe.tasks.components.containers.AudioData;
-
-// Load an audio on the user’s device as a float array.
-
-// Convert a float array to a MediaPipe’s AudioData object.
-AudioData audioData =
-    AudioData.create(
-        AudioData.AudioDataFormat.builder()
-            .setNumOfChannels(numOfChannels)
-            .setSampleRate(sampleRate)
-            .build(),
-        floatData.length);
-audioData.load(floatData);
-    
-Run the task
-You can call the classify function corresponding to your running mode to trigger inferences. The Audio Classifier API returns the possible categories for the audio events recognized within the input audio data.
-
-Audio clips
-Audio stream
-
-AudioClassifierResult classifierResult = audioClassifier.classify(audioData);
-    "this is the audio part and how you can do it"
+**Aidy - Because every second counts in an emergency.**
